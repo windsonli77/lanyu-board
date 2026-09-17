@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D1826">
+<title>蓝屿 · 留言板</title>
+<style>
+/* 蓝屿 · 墨夜蓝 × 暖杏橙 */
+:root {
+  --bg: #0D1826;
+  --bg-soft: #111F33;
+  --card: #17293F;
+  --card-2: #1D3250;
+  --line: #263D5C;
+  --ink: #EFE9DD;
+  --ink-dim: #93A3B8;
+  --accent: #F2994A;
+  --accent-deep: #E07F2E;
+  --accent-ink: #241304;
+  --teal: #6FB7DE;
+  --danger: #E4645A;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Source Han Sans SC", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(120% 60% at 80% -10%, rgba(242, 153, 74, .10), transparent 60%),
+    radial-gradient(100% 50% at 0% 0%, rgba(111, 183, 222, .07), transparent 55%),
+    var(--bg);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.55;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+code { background: var(--card-2); border-radius: 6px; padding: 1px 6px; font-size: .9em; }
+
+/* ---------- 通用 ---------- */
+.btn-primary {
+  width: 100%; padding: 13px 16px; border-radius: 12px;
+  background: var(--accent); color: var(--accent-ink);
+  font-weight: 700; letter-spacing: .12em;
+  transition: background .15s ease, transform .05s ease;
+}
+.btn-primary:active { background: var(--accent-deep); transform: scale(.985); }
+.btn-primary:disabled { opacity: .55; }
+.btn-primary.small { width: auto; padding: 9px 14px; letter-spacing: .04em; }
+.text-btn { color: var(--ink-dim); padding: 6px 4px; font-size: 14px; }
+.text-btn:active { color: var(--ink); }
+
+.toast {
+  position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%);
+  background: #1A1206; color: var(--accent);
+  border: 1px solid rgba(242, 153, 74, .35);
+  padding: 10px 18px; border-radius: 999px; font-size: 14px;
+  z-index: 60; max-width: 82vw; text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+
+/* ---------- 配置引导 ---------- */
+.setup { min-height: 100%; display: grid; place-items: center; padding: 28px 20px; }
+.setup-card {
+  max-width: 460px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 20px; padding: 30px 26px;
+}
+.setup-card h1 { font-size: 20px; margin: 14px 0 8px; }
+.setup-card p, .setup-card li { color: var(--ink-dim); font-size: 14px; }
+.setup-card ol { padding-left: 20px; margin: 10px 0 0; }
+.setup-card li { margin: 8px 0; }
+
+/* ---------- 门禁 ---------- */
+.gate { min-height: 100%; display: grid; place-items: center; padding: 28px 20px calc(28px + env(safe-area-inset-bottom)); }
+.gate-card {
+  width: 100%; max-width: 400px;
+  background: rgba(23, 41, 63, .82);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-radius: 22px; padding: 30px 24px;
+}
+.brand { text-align: center; margin-bottom: 22px; }
+.brand-mark {
+  display: inline-block; font-size: 30px; font-weight: 800; letter-spacing: .35em; text-indent: .35em;
+  color: var(--ink);
+}
+.brand-sub { margin-top: 6px; font-size: 13px; color: var(--ink-dim); letter-spacing: .2em; }
+
+.tabs { display: flex; background: var(--bg-soft); border-radius: 12px; padding: 4px; margin-bottom: 18px; }
+.tab { flex: 1; padding: 9px 0; border-radius: 9px; color: var(--ink-dim); font-size: 15px; transition: all .15s ease; }
+.tab.active { background: var(--card-2); color: var(--ink); font-weight: 600; }
+
+.form label { display: block; font-size: 13px; color: var(--ink-dim); margin: 14px 2px 6px; }
+.form input {
+  width: 100%; padding: 12px 14px; border-radius: 12px;
+  background: var(--bg-soft); border: 1px solid var(--line);
+  color: var(--ink); font-size: 16px; outline: none;
+  transition: border-color .15s ease;
+}
+.form input:focus { border-color: var(--accent); }
+.form .btn-primary { margin-top: 22px; }
+.gate-msg { min-height: 22px; margin-top: 12px; text-align: center; font-size: 14px; color: var(--danger); }
+
+/* ---------- 主体框架 ---------- */
+.board { height: 100dvh; display: flex; flex-direction: column; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  border-bottom: 1px solid rgba(38, 61, 92, .6);
+  background: rgba(13, 24, 38, .8);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.topbar-title { font-size: 17px; font-weight: 700; letter-spacing: .1em; }
+.topbar-title .dot { color: var(--accent); margin: 0 4px; }
+.topbar-title em { font-style: normal; font-weight: 500; color: var(--teal); font-size: 15px; }
+.topbar-actions { display: flex; gap: 14px; }
+
+.msgs { flex: 1; overflow-y: auto; padding: 16px 14px 12px; scroll-behavior: smooth; }
+.empty { text-align: center; color: var(--ink-dim); font-size: 14px; padding: 60px 0; letter-spacing: .1em; }
+
+/* ---------- 消息气泡 ---------- */
+.msg { display: flex; margin-bottom: 14px; }
+.msg.mine { justify-content: flex-end; }
+.bubble { max-width: 78%; }
+.nick { font-size: 12px; color: var(--teal); margin: 0 6px 4px; letter-spacing: .05em; }
+.msg.mine .nick { text-align: right; color: var(--ink-dim); }
+.body {
+  padding: 10px 13px; border-radius: var(--radius);
+  background: var(--card); border: 1px solid rgba(38, 61, 92, .55);
+  border-top-left-radius: 5px;
+  word-break: break-word; white-space: pre-wrap;
+}
+.msg.mine .body {
+  background: linear-gradient(160deg, #F5A55C, var(--accent));
+  border: 0; color: var(--accent-ink);
+  border-radius: var(--radius); border-top-right-radius: 5px;
+}
+.msg.mine .meta { text-align: right; }
+.meta { font-size: 11px; color: var(--ink-dim); margin: 4px 6px 0; }
+.msg.mine .meta { color: rgba(239, 233, 221, .5); }
+
+.imgs { display: grid; gap: 6px; margin-top: 6px; }
+.imgs:empty { margin: 0; }
+.imgs img {
+  width: 100%; border-radius: 10px; display: block; cursor: zoom-in;
+  border: 1px solid rgba(38, 61, 92, .4);
+}
+.imgs.multiple { grid-template-columns: 1fr 1fr; }
+.imgs.multiple img { aspect-ratio: 1; object-fit: cover; }
+.body > .text:empty { display: none; }
+
+/* ---------- 输入区 ---------- */
+.composer {
+  border-top: 1px solid rgba(38, 61, 92, .6);
+  background: rgba(13, 24, 38, .85);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+}
+.edit-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; color: var(--accent);
+  padding: 2px 4px 8px;
+}
+.edit-bar button { color: var(--ink-dim); font-size: 13px; }
+.preview { display: flex; gap: 8px; padding: 0 2px 8px; flex-wrap: wrap; }
+.thumb { position: relative; width: 64px; height: 64px; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+.thumb button {
+  position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--danger); color: #fff; font-size: 12px; line-height: 1;
+}
+.composer-row { display: flex; align-items: flex-end; gap: 9px; }
+.plus-btn {
+  width: 40px; height: 40px; flex: none; border-radius: 50%;
+  background: var(--card-2); color: var(--accent);
+  display: grid; place-items: center;
+}
+.plus-btn:active { background: var(--line); }
+#input {
+  flex: 1; resize: none; border: 1px solid var(--line); border-radius: 20px;
+  background: var(--bg-soft); color: var(--ink);
+  padding: 10px 15px; font-size: 16px; line-height: 1.4; max-height: 120px; outline: none;
+}
+#input:focus { border-color: var(--accent); }
+.send {
+  flex: none; height: 40px; padding: 0 18px; border-radius: 20px;
+  background: var(--accent); color: var(--accent-ink); font-weight: 700;
+}
+.send:disabled { opacity: .5; }
+.send:active { background: var(--accent-deep); }
+
+/* ---------- 面板与弹层 ---------- */
+.panel, .sheet-mask, .lightbox { position: fixed; inset: 0; z-index: 40; }
+.panel { background: rgba(5, 10, 17, .6); display: flex; align-items: flex-end; }
+.panel-card {
+  width: 100%; background: var(--card); border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  max-height: 72dvh; overflow-y: auto;
+  animation: rise .18s ease;
+}
+@keyframes rise { from { transform: translateY(24px); opacity: .6; } }
+.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.panel-head strong { letter-spacing: .1em; }
+.panel-new { display: flex; gap: 10px; margin-bottom: 14px; }
+.panel-new select {
+  flex: 1; background: var(--bg-soft); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 12px; padding: 9px 12px; font-size: 15px;
+}
+.invite-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 4px; border-top: 1px solid rgba(38, 61, 92, .5); font-size: 14px;
+}
+.invite-item .code { font-family: ui-monospace, monospace; letter-spacing: .06em; flex: 1; }
+.invite-item .stat { color: var(--ink-dim); font-size: 12px; }
+.invite-item .stat.dead { color: var(--danger); }
+.invite-item button { color: var(--teal); font-size: 13px; padding: 4px 6px; }
+.invite-item button.off { color: var(--danger); }
+
+.sheet-mask { background: rgba(5, 10, 17, .6); display: flex; align-items: flex-end; }
+.sheet { width: 100%; background: var(--card); border-radius: 18px 18px 0 0; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); animation: rise .18s ease; }
+.sheet button { display: block; width: 100%; padding: 16px; text-align: center; font-size: 16px; border-top: 1px solid rgba(38, 61, 92, .5); }
+.sheet button:first-child { border-top: 0; }
+.sheet .danger { color: var(--danger); }
+
+.lightbox { background: rgba(3, 6, 10, .92); display: grid; place-items: center; z-index: 50; padding: 20px; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+
+@media (min-width: 720px) {
+  .msgs, .composer { max-width: 680px; margin: 0 auto; width: 100%; }
+  .topbar-inner { max-width: 680px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- 配置缺失时的引导页 -->
+<div id="setupGuide" class="setup" hidden>
+  <div class="setup-card">
+    <div class="brand-mark">蓝屿</div>
+    <h1>还差最后一步</h1>
+    <p>打开项目里的 <code>config.js</code>，把 Supabase 的 <b>Project URL</b> 和 <b>anon public key</b> 填进去即可。</p>
+    <ol>
+      <li>supabase.com 注册免费账号 → New Project</li>
+      <li>SQL Editor 里运行 <code>supabase-setup.sql</code>（见项目说明文档）</li>
+      <li>Authentication → Sign In / Providers：关闭邮箱与手机号「确认」</li>
+      <li>Project Settings → API：复制两个 key 填入 <code>config.js</code></li>
+      <li>重新部署</li>
+    </ol>
+  </div>
+</div>
+
+<!-- 门禁：登录 / 注册 -->
+<div id="gate" class="gate" hidden>
+  <div class="gate-card">
+    <div class="brand">
+      <div class="brand-mark">蓝屿</div>
+      <div class="brand-sub">一隅安静的地方</div>
+    </div>
+    <div class="tabs">
+      <button id="tabLogin" type="button" class="tab active">登录</button>
+      <button id="tabRegister" type="button" class="tab">注册</button>
+    </div>
+
+    <form id="loginForm" class="form" autocomplete="on">
+      <label for="loginPhone">手机号</label>
+      <input id="loginPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="11 位手机号">
+      <label for="loginPwd">密码</label>
+      <input id="loginPwd" type="password" autocomplete="current-password" placeholder="登录密码">
+      <button class="btn-primary" type="submit">进入</button>
+    </form>
+
+    <form id="regForm" class="form" hidden autocomplete="off">
+      <label for="regCode">邀请码</label>
+      <input id="regCode" placeholder="向管理员索取">
+      <label for="regPhone">手机号</label>
+      <input id="regPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="11 位手机号">
+      <label for="regPwd">密码</label>
+      <input id="regPwd" type="password" autocomplete="new-password" placeholder="至少 6 位">
+      <label for="regNick">昵称</label>
+      <input id="regNick" maxlength="12" placeholder="大家看到的名字，2-12 字">
+      <button class="btn-primary" type="submit">创建并进入</button>
+    </form>
+
+    <div id="gateMsg" class="gate-msg"></div>
+  </div>
+</div>
+
+<!-- 留言板主体 -->
+<div id="board" class="board" hidden>
+  <header class="topbar">
+    <div class="topbar-title">蓝屿 <span class="dot">·</span> <em id="meNick"></em></div>
+    <div class="topbar-actions">
+      <button id="btnAdmin" type="button" class="text-btn" hidden>邀请</button>
+      <button id="btnLogout" type="button" class="text-btn">退出</button>
+    </div>
+  </header>
+
+  <main id="msgs" class="msgs"></main>
+
+  <footer class="composer">
+    <div id="editBar" class="edit-bar" hidden>
+      <span>正在编辑这条留言</span>
+      <button id="btnCancelEdit" type="button">取消</button>
+    </div>
+    <div id="preview" class="preview" hidden></div>
+    <div class="composer-row">
+      <button id="btnImg" type="button" class="plus-btn" aria-label="添加图片">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+      </button>
+      <input id="imgInput" type="file" accept="image/*" multiple hidden>
+      <textarea id="input" rows="1" placeholder="说点什么…"></textarea>
+      <button id="btnSend" type="button" class="send">发送</button>
+    </div>
+  </footer>
+
+  <!-- 邀请管理 -->
+  <div id="adminPanel" class="panel" hidden>
+    <div class="panel-card">
+      <div class="panel-head">
+        <strong>邀请管理</strong>
+        <button id="btnCloseAdmin" type="button" class="text-btn">关闭</button>
+      </div>
+      <div class="panel-new">
+        <select id="inviteUses">
+          <option value="1">可用 1 次</option>
+          <option value="3">可用 3 次</option>
+          <option value="10">可用 10 次</option>
+        </select>
+        <button id="btnGen" type="button" class="btn-primary small">生成邀请码</button>
+      </div>
+      <div id="inviteList" class="invite-list"></div>
+    </div>
+  </div>
+
+  <!-- 消息操作 -->
+  <div id="actionSheet" class="sheet-mask" hidden>
+    <div class="sheet">
+      <button id="actEdit" type="button">编辑</button>
+      <button id="actDel" type="button" class="danger">删除</button>
+      <button id="actCancel" type="button">取消</button>
+    </div>
+  </div>
+
+  <!-- 图片查看 -->
+  <div id="lightbox" class="lightbox" hidden>
+    <img id="lightboxImg" alt="">
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.80.0/dist/umd/supabase.min.js"></script>
+<script>
+/* 蓝屿 · 配置文件
+ * 把 Supabase 的两个 key 填到下面引号里，保存后重新部署即可。
+ * 位置：Supabase 控制台 → Project Settings → API
+ */
+window.BOARD_CONFIG = {
+  SUPABASE_URL: "https://peuiapbcfpdlfbcdvuh.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_NWbt4OHHFuCrRfbC911Vow_pwkPDBno"
+};
+
+</script>
+<script>
+/* 蓝屿 · 私密留言板 */
+(function () {
+  'use strict';
+
+  var cfg = window.BOARD_CONFIG || {};
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- 配置检查 ---------- */
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+    $('setupGuide').hidden = false;
+    return;
+  }
+
+  var sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+
+  var state = {
+    user: null,
+    profile: null,
+    msgs: [],
+    editingId: null,
+    actionId: null,
+    pending: []          // 待发送图片: { blob, url }
+  };
+
+  /* ---------- 工具 ---------- */
+  var toastTimer = null;
+  function toast(msg, ms) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, ms || 2200);
+  }
+
+  function formatPhone(raw) {
+    raw = (raw || '').trim();
+    if (raw.charAt(0) === '+') {
+      var full = raw.replace(/[\s-]/g, '');
+      return /^\+\d{7,15}$/.test(full) ? full : null;
+    }
+    var d = raw.replace(/\D/g, '');
+    if (/^1\d{10}$/.test(d)) return '+86' + d;
+    return null;
+  }
+
+  function fmtTime(iso) {
+    var d = new Date(iso);
+    var now = new Date();
+    var hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    if (d.toDateString() === now.toDateString()) return hm;
+    var y = new Date(now); y.setDate(now.getDate() - 1);
+    if (d.toDateString() === y.toDateString()) return '昨天 ' + hm;
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function friendlyErr(err) {
+    var m = (err && err.message) || '';
+    if (/already registered|already been registered|User already exists/i.test(m)) return '这个手机号已注册，请直接登录';
+    if (/invalid login/i.test(m)) return '手机号或密码不正确';
+    if (/at least 6/i.test(m)) return '密码至少 6 位';
+    if (/Unable to validate/i.test(m)) return '网络异常，请重试';
+    return m || '出错了，请重试';
+  }
+
+  /* ---------- 门禁 ---------- */
+  function showGate() {
+    $('board').hidden = true;
+    $('gate').hidden = false;
+    document.title = '蓝屿 · 留言板';
+  }
+  function gateMsg(t) { $('gateMsg').textContent = t || ''; }
+
+  $('tabLogin').addEventListener('click', function () {
+    $('tabLogin').classList.add('active');
+    $('tabRegister').classList.remove('active');
+    $('loginForm').hidden = false;
+    $('regForm').hidden = true;
+    gateMsg('');
+  });
+  $('tabRegister').addEventListener('click', function () {
+    $('tabRegister').classList.add('active');
+    $('tabLogin').classList.remove('active');
+    $('regForm').hidden = false;
+    $('loginForm').hidden = true;
+    gateMsg('');
+  });
+
+  $('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    gateMsg('');
+    var phone = formatPhone($('loginPhone').value);
+    if (!phone) return gateMsg('请输入正确的 11 位手机号');
+    var pwd = $('loginPwd').value;
+    if (!pwd) return gateMsg('请输入密码');
+    var btn = this.querySelector('button');
+    btn.disabled = true;
+    var res = await sb.auth.signInWithPassword({ phone: phone, password: pwd });
+    btn.disabled = false;
+    if (res.error) return gateMsg(friendlyErr(res.error));
+    await enterBoard(res.data.user);
+  });
+
+  $('regForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    gateMsg('');
+    var code = $('regCode').value.trim();
+    var phone = formatPhone($('regPhone').value);
+    var pwd = $('regPwd').value;
+    var nick = $('regNick').value.trim();
+    if (!code) return gateMsg('请输入邀请码');
+    if (!phone) return gateMsg('请输入正确的 11 位手机号');
+    if (pwd.length < 6) return gateMsg('密码至少 6 位');
+    if (nick.length < 2 || nick.length > 12) return gateMsg('昵称需要 2-12 个字');
+
+    var btn = this.querySelector('button');
+    btn.disabled = true;
+    try {
+      // 预校验邀请码（不消耗次数）
+      var v = await sb.rpc('validate_invite', { p_code: code });
+      if (v.error || !v.data) { btn.disabled = false; return gateMsg('邀请码无效或已被用完'); }
+
+      var su = await sb.auth.signUp({ phone: phone, password: pwd });
+      if (su.error) { btn.disabled = false; return gateMsg(friendlyErr(su.error)); }
+
+      var r = await sb.rpc('register_with_invite', { p_code: code, p_nickname: nick });
+      if (r.error || !r.data) {
+        await sb.auth.signOut();
+        btn.disabled = false;
+        return gateMsg('邀请码验证失败，可能刚被用完，请联系管理员');
+      }
+      await enterBoard(su.data.user);
+    } catch (err) {
+      btn.disabled = false;
+      gateMsg('网络异常，请重试');
+    }
+  });
+
+  /* ---------- 进入主界面 ---------- */
+  async function enterBoard(user) {
+    var p = await sb.from('profiles').select('*').eq('user_id', user.id).single();
+    if (p.error || !p.data) {
+      await sb.auth.signOut();
+      showGate();
+      gateMsg('账号资料缺失，请联系管理员');
+      return;
+    }
+    state.user = user;
+    state.profile = p.data;
+    $('meNick').textContent = p.data.nickname;
+    $('btnAdmin').hidden = !p.data.is_admin;
+    $('gate').hidden = true;
+    $('board').hidden = false;
+    gateMsg('');
+    await refresh(true);
+  }
+
+  sb.auth.getSession().then(function (res) {
+    if (res.data && res.data.session) enterBoard(res.data.session.user);
+    else showGate();
+  });
+  sb.auth.onAuthStateChange(function (_e, session) {
+    if (!session) { state.user = null; state.profile = null; showGate(); }
+  });
+
+  $('btnLogout').addEventListener('click', async function () {
+    await sb.auth.signOut();
+  });
+
+  /* ---------- 消息 ---------- */
+  var pollTimer = setInterval(function () {
+    if (!$('board').hidden && document.visibilityState === 'visible' && $('adminPanel').hidden && $('actionSheet').hidden) {
+      refresh(false);
+    }
+  }, 4000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && !$('board').hidden) refresh(false);
+  });
+
+  async function refresh(first) {
+    var res = await sb
+      .from('messages')
+      .select('id, content, images, created_at, edited_at, user_id, profiles(nickname)')
+      .order('created_at', { ascending: true })
+      .limit(300);
+    if (res.error) { if (first) toast('同步失败：' + res.error.message); return; }
+
+    var box = $('msgs');
+    var nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+    var had = state.msgs.length;
+    state.msgs = res.data || [];
+    render();
+
+    if (first || (state.msgs.length > had && nearBottom)) {
+      requestAnimationFrame(function () { box.scrollTop = box.scrollHeight; });
+    }
+  }
+
+  function nickOf(m) {
+    return (m.profiles && m.profiles[0] && m.profiles[0].nickname) || '无名';
+  }
+
+  function render() {
+    var box = $('msgs');
+    if (!state.msgs.length) {
+      box.innerHTML = '<div class="empty">还没有留言，说点什么吧。</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < state.msgs.length; i++) {
+      var m = state.msgs[i];
+      var mine = m.user_id === state.user.id;
+      var nick = mine ? '我' : esc(nickOf(m));
+      var imgs = (m.images && m.images.length)
+        ? '<div class="imgs' + (m.images.length > 1 ? ' multiple' : '') + '">' +
+          m.images.map(function (u) {
+            return '<img src="' + esc(u) + '" loading="lazy" data-full="' + esc(u) + '">';
+          }).join('') + '</div>'
+        : '';
+      html += '<div class="msg ' + (mine ? 'mine' : 'theirs') + '" data-id="' + m.id + '">' +
+        '<div class="bubble">' +
+        '<div class="nick">' + nick + '</div>' +
+        '<div class="body">' +
+        '<div class="text">' + esc(m.content) + '</div>' +
+        imgs +
+        '</div>' +
+        '<div class="meta">' + fmtTime(m.created_at) + (m.edited_at ? ' · 已编辑' : '') + '</div>' +
+        '</div></div>';
+    }
+    box.innerHTML = html;
+  }
+
+  /* 点消息：自己的可编辑/删除，管理员可删任何人 */
+  $('msgs').addEventListener('click', function (e) {
+    if (e.target.tagName === 'IMG') {
+      $('lightboxImg').src = e.target.getAttribute('data-full');
+      $('lightbox').hidden = false;
+      return;
+    }
+    var node = e.target.closest('.msg');
+    if (!node) return;
+    var id = Number(node.getAttribute('data-id'));
+    var m = state.msgs.find(function (x) { return x.id === id; });
+    if (!m) return;
+    var mine = m.user_id === state.user.id;
+    var canDel = mine || (state.profile && state.profile.is_admin);
+    if (!mine && !canDel) return;
+    state.actionId = id;
+    $('actEdit').hidden = !mine;
+    $('actDel').textContent = mine ? '删除' : '删除（管理员）';
+    $('actionSheet').hidden = false;
+  });
+  $('lightbox').addEventListener('click', function () { this.hidden = true; });
+
+  $('actCancel').addEventListener('click', function () { $('actionSheet').hidden = true; });
+  $('actionSheet').addEventListener('click', function (e) {
+    if (e.target === this) this.hidden = true;
+  });
+
+  $('actEdit').addEventListener('click', function () {
+    $('actionSheet').hidden = true;
+    var m = state.msgs.find(function (x) { return x.id === state.actionId; });
+    if (!m) return;
+    state.editingId = m.id;
+    $('input').value = m.content;
+    $('editBar').hidden = false;
+    $('btnSend').textContent = '保存';
+    autoGrow();
+    $('input').focus();
+  });
+
+  $('btnCancelEdit').addEventListener('click', cancelEdit);
+  function cancelEdit() {
+    state.editingId = null;
+    $('input').value = '';
+    $('editBar').hidden = true;
+    $('btnSend').textContent = '发送';
+    autoGrow();
+  }
+
+  $('actDel').addEventListener('click', async function () {
+    $('actionSheet').hidden = true;
+    var id = state.actionId;
+    var res = await sb.from('messages').delete().eq('id', id);
+    if (res.error) return toast('删除失败：' + res.error.message);
+    state.msgs = state.msgs.filter(function (x) { return x.id !== id; });
+    if (state.editingId === id) cancelEdit();
+    render();
+    toast('已删除');
+  });
+
+  /* ---------- 发送 ---------- */
+  var input = $('input');
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  }
+  input.addEventListener('input', autoGrow);
+
+  $('btnSend').addEventListener('click', send);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !/mobile|android|iphone/i.test(navigator.userAgent)) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  async function send() {
+    var content = input.value.trim();
+    if (state.editingId) {
+      if (!content) return toast('内容不能为空');
+      $('btnSend').disabled = true;
+      var r = await sb.from('messages')
+        .update({ content: content, edited_at: new Date().toISOString() })
+        .eq('id', state.editingId);
+      $('btnSend').disabled = false;
+      if (r.error) return toast('保存失败：' + r.error.message);
+      cancelEdit();
+      await refresh(false);
+      return;
+    }
+
+    if (!content && state.pending.length === 0) return;
+    $('btnSend').disabled = true;
+
+    try {
+      var urls = [];
+      for (var i = 0; i < state.pending.length; i++) {
+        var file = state.pending[i].blob;
+        var path = state.user.id + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.jpg';
+        var up = await sb.storage.from('images').upload(path, file, { contentType: 'image/jpeg' });
+        if (up.error) throw up.error;
+        urls.push(sb.storage.from('images').getPublicUrl(path).data.publicUrl);
+      }
+      var ins = await sb.from('messages').insert({ content: content, images: urls });
+      if (ins.error) throw ins.error;
+      input.value = '';
+      autoGrow();
+      clearPending();
+      await refresh(false);
+      requestAnimationFrame(function () {
+        var box = $('msgs');
+        box.scrollTop = box.scrollHeight;
+      });
+    } catch (err) {
+      toast('发送失败：' + ((err && err.message) || '网络异常'));
+    }
+    $('btnSend').disabled = false;
+  }
+
+  /* ---------- 图片选择与压缩 ---------- */
+  $('btnImg').addEventListener('click', function () { $('imgInput').click(); });
+
+  $('imgInput').addEventListener('change', async function () {
+    var files = Array.prototype.slice.call(this.files);
+    this.value = '';
+    for (var i = 0; i < files.length; i++) {
+      if (state.pending.length >= 4) { toast('最多 4 张图片'); break; }
+      var f = files[i];
+      if (f.size > 10 * 1024 * 1024) { toast('单张图片不能超过 10MB'); continue; }
+      try {
+        var blob = await compressImage(f);
+        state.pending.push({ blob: blob, url: URL.createObjectURL(blob) });
+      } catch (e) {
+        toast('图片处理失败');
+      }
+    }
+    renderPending();
+  });
+
+  function compressImage(file) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        var max = 1600;
+        var w = img.naturalWidth, h = img.naturalHeight;
+        var scale = Math.min(1, max / Math.max(w, h));
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function (b) { b ? resolve(b) : reject(new Error('compress')); }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('load')); };
+      img.src = url;
+    });
+  }
+
+  function renderPending() {
+    var box = $('preview');
+    box.innerHTML = '';
+    state.pending.forEach(function (p, idx) {
+      var div = document.createElement('div');
+      div.className = 'thumb';
+      var img = document.createElement('img');
+      img.src = p.url;
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.textContent = '×';
+      x.addEventListener('click', function () {
+        URL.revokeObjectURL(p.url);
+        state.pending.splice(idx, 1);
+        renderPending();
+      });
+      div.appendChild(img);
+      div.appendChild(x);
+      box.appendChild(div);
+    });
+    box.hidden = state.pending.length === 0;
+  }
+
+  function clearPending() {
+    state.pending.forEach(function (p) { URL.revokeObjectURL(p.url); });
+    state.pending = [];
+    renderPending();
+  }
+
+  /* ---------- 邀请管理（仅管理员） ---------- */
+  $('btnAdmin').addEventListener('click', function () {
+    $('adminPanel').hidden = false;
+    loadInvites();
+  });
+  $('btnCloseAdmin').addEventListener('click', function () { $('adminPanel').hidden = true; });
+  $('adminPanel').addEventListener('click', function (e) {
+    if (e.target === this) this.hidden = true;
+  });
+
+  function genCode() {
+    var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    var s = '';
+    for (var i = 0; i < 8; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    return s;
+  }
+
+  $('btnGen').addEventListener('click', async function () {
+    var code = genCode();
+    var uses = Number($('inviteUses').value);
+    var res = await sb.from('invites').insert({ code: code, created_by: state.user.id, max_uses: uses });
+    if (res.error) return toast('生成失败：' + res.error.message);
+    await loadInvites();
+    copyText(code);
+  });
+
+  async function loadInvites() {
+    var res = await sb.from('invites').select('*').order('created_at', { ascending: false }).limit(50);
+    if (res.error) return toast('读取失败：' + res.error.message);
+    var box = $('inviteList');
+    box.innerHTML = '';
+    if (!res.data.length) {
+      box.innerHTML = '<div class="empty">还没有邀请码，点上方生成一个。</div>';
+      return;
+    }
+    res.data.forEach(function (inv) {
+      var dead = !inv.active || inv.used_count >= inv.max_uses;
+      var row = document.createElement('div');
+      row.className = 'invite-item';
+      var code = document.createElement('span');
+      code.className = 'code';
+      code.textContent = inv.code;
+      var stat = document.createElement('span');
+      stat.className = 'stat' + (dead ? ' dead' : '');
+      stat.textContent = inv.active ? (inv.used_count + '/' + inv.max_uses) : '已停用';
+      var cp = document.createElement('button');
+      cp.type = 'button';
+      cp.textContent = '复制';
+      cp.addEventListener('click', function () { copyText(inv.code); });
+      row.appendChild(code);
+      row.appendChild(stat);
+      row.appendChild(cp);
+      if (!dead) {
+        var off = document.createElement('button');
+        off.type = 'button';
+        off.className = 'off';
+        off.textContent = '停用';
+        off.addEventListener('click', async function () {
+          await sb.from('invites').update({ active: false }).eq('code', inv.code);
+          loadInvites();
+        });
+        row.appendChild(off);
+      }
+      box.appendChild(row);
+    });
+  }
+
+  function copyText(t) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () { toast('已复制：' + t); }, function () { prompt('复制邀请码：', t); });
+    } else {
+      prompt('复制邀请码：', t);
+    }
+  }
+})();
+
+</script>
+</body>
+</html>
