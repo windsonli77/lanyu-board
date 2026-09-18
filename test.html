@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>蓝屿连接诊断</title>
+<style>
+body{font-family:-apple-system,"PingFang SC",sans-serif;background:#0D1826;color:#EFE9DD;padding:20px;font-size:15px;line-height:1.7}
+h1{font-size:19px}
+.item{background:#17293F;border-radius:10px;padding:12px;margin:12px 0;word-break:break-all}
+.ok{color:#7BC47F}.bad{color:#E4645A}
+pre{white-space:pre-wrap;margin:6px 0 0;font-size:12px;color:#93A3B8}
+button{background:#F2994A;border:0;border-radius:10px;padding:15px;width:100%;font-size:16px;font-weight:700;margin-top:16px}
+</style>
+</head>
+<body>
+<h1>蓝屿 · 连接诊断</h1>
+<div id="log">正在检测，请稍候几秒…</div>
+<button id="copyBtn" hidden>复制检测结果（点我，然后发给 Kimi）</button>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var REPORT = [];
+function add(title, ok, detail){
+  if(title==='__clear__'){ document.getElementById('log').innerHTML=''; return; }
+  REPORT.push(title + ' => ' + (ok ? '通过' : '失败') + (detail ? '\n' + detail : ''));
+  var div = document.createElement('div'); div.className='item';
+  div.innerHTML = '<b class="'+(ok?'ok':'bad')+'">'+(ok?'✔ ':'✘ ')+title+'</b>'+(detail?'<pre>'+detail+'</pre>':'');
+  document.getElementById('log').appendChild(div);
+}
+add('__clear__');
+function done(){ document.getElementById('copyBtn').hidden = false; }
+function run(){
+  try{
+    add('① Supabase 客户端(JS库)加载', !!window.supabase, window.supabase?'加载成功':'jsDelivr CDN 加载失败，说明网络加载外部资源受限');
+    if(!window.supabase){ done(); return; }
+    var sb = window.supabase.createClient('https://peuiapbcfpdlfbcdvuh.supabase.co','sb_publishable_NWbt4OHHFuCrRfbC911Vow_pwkPDBno');
+    add('② 客户端创建', !!sb);
+    sb.rpc('validate_invite',{p_code:'WRONGCODE-TEST'}).then(function(r1){
+      if(r1.error){
+        var m = (r1.error && (r1.error.message||r1.error.error_description||JSON.stringify(r1.error))) || '';
+        var reached = /permission|schema cache|find the function|Could not/i.test(m);
+        add('③ 服务器连通性', reached, '服务器有响应（返回错误是正常的，关键是收到了回复）\n'+m.slice(0,300));
+      } else {
+        add('③ 服务器连通性', true, '服务器正常响应，错误码测试返回 data='+JSON.stringify(r1.data));
+      }
+      sb.rpc('validate_invite',{p_code:'Ajwl2026'}).then(function(r2){
+        if(r2.error){
+          add('④ 正确邀请码校验', false, 'RPC 报错：\n'+((r2.error.message||JSON.stringify(r2.error))).slice(0,600));
+        } else {
+          add('④ 正确邀请码校验（应为true）', r2.data===true, '服务器返回 data = '+JSON.stringify(r2.data));
+        }
+        done();
+      }).catch(function(e){ add('④ 请求异常', false, String(e)); done(); });
+    }).catch(function(e){ add('③ 网络请求异常', false, String(e)); done(); });
+  }catch(e){ add('执行异常', false, String(e)); done(); }
+}
+document.getElementById('copyBtn').addEventListener('click', function(){
+  var text = '【蓝屿诊断结果】\n' + REPORT.join('\n\n');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ alert('已复制，回到聊天粘贴给 Kimi'); });
+  } else {
+    prompt('长按复制以下内容：', text);
+  }
+});
+run();
+</script>
+</body>
+</html>
